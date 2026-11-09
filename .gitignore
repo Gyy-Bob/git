@@ -1,0 +1,65 @@
+# ==== 编译产物 ====
+target/
+build/
+out/
+bin/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# ==== IntelliJ IDEA ====
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# ==== Eclipse / STS ====
+.classpath
+.project
+.settings/
+.factorypath
+
+# ==== VS Code ====
+.vscode/
+
+# ==== NetBeans ====
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# ==== Gradle ====
+.gradle/
+gradlew
+gradlew.bat
+gradle/wrapper/gradle-wrapper.jar
+
+# ==== Maven Wrapper ====
+.mvn/wrapper/maven-wrapper.jar
+
+# ==== 日志与临时文件 ====
+*.log
+logs/
+*.tmp
+*.bak
+*.swp
+*~
+hs_err_pid*
+replay_pid*
+
+# ==== 系统文件 ====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==== 环境与密钥（勿提交）====
+.env
+.env.local
+*.pem
+*.jks
+*.p12
+application-local.yml
+application-local.properties
