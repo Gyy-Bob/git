@@ -63,3 +63,6 @@ desktop.ini
 *.p12
 application-local.yml
 application-local.properties
+
+# ==== IDE / 工具内部数据 ====
+.workbuddy/
