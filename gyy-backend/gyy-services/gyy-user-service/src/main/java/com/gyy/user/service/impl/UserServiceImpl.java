@@ -34,7 +34,8 @@ public class UserServiceImpl implements UserService {
     public PageResult<UserVO> page(UserPageQuery query) {
         QueryWrapper<UserEntity> qw = new QueryWrapper<>();
         // 列表查询显式排除 user_img 大字段（见 docs/backend/SQL/user_db.md §5.2）
-        qw.select(UserEntity.class, f -> !"user_img".equals(f.getColumn()));
+        qw.select(UserEntity.class, f -> !"user_img".equals(f.getColumn()))
+          .eq("is_deleted", 0);
         if (StringUtils.hasText(query.getUserName())) {
             qw.like("user_name", query.getUserName().trim());
         }
@@ -54,7 +55,8 @@ public class UserServiceImpl implements UserService {
         // 详情同样不拉大字段，hasAvatar 通过 exists 单独判断
         QueryWrapper<UserEntity> qw = new QueryWrapper<>();
         qw.select(UserEntity.class, f -> !"user_img".equals(f.getColumn()))
-          .eq("user_id", userId);
+          .eq("user_id", userId)
+          .eq("is_deleted", 0);
         UserEntity entity = userMapper.selectOne(qw);
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在: " + userId);
@@ -107,8 +109,10 @@ public class UserServiceImpl implements UserService {
     @Override
     public void delete(Long userId) {
         requireExists(userId);
-        // 表暂无 is_deleted 字段，物理删除；接入逻辑删除后改为 UPDATE is_deleted=1
-        userMapper.deleteById(userId);
+        // 逻辑删除（表已有 is_deleted 字段，见 SQL/user_db.sql v1.1）
+        UpdateWrapper<UserEntity> uw = new UpdateWrapper<>();
+        uw.eq("user_id", userId).set("is_deleted", 1);
+        userMapper.update(null, uw);
     }
 
     @Override
@@ -139,7 +143,8 @@ public class UserServiceImpl implements UserService {
     }
 
     private UserEntity requireExists(Long userId) {
-        UserEntity entity = userMapper.selectById(userId);
+        UserEntity entity = userMapper.selectOne(new QueryWrapper<UserEntity>()
+                .eq("user_id", userId).eq("is_deleted", 0));
         if (entity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在: " + userId);
         }

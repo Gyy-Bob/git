@@ -19,6 +19,11 @@ public enum ErrorCode {
     // ---- 40400 资源 ----
     NOT_FOUND(40400, "资源不存在"),
 
+    // ---- 业务扩展（见 docs/backend/04-业务逻辑文档.md §4） ----
+    LOGIN_FAILED(40101, "用户名或密码错误"),
+    ACCOUNT_DISABLED(40302, "账号已被禁用，请联系管理员"),
+    USERNAME_TAKEN(40901, "用户名已被注册"),
+
     // ---- 5xx00 服务端 ----
     INTERNAL_ERROR(50000, "服务内部错误"),
     DOWNSTREAM_TIMEOUT(50001, "下游服务超时"),

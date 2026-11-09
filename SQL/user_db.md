@@ -2,8 +2,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | v1.0 |
-| 更新日期 | 2026-11-09 |
+| 文档版本 | v1.1 |
+| 更新日期 | 2026-11-10 |
 | 适用数据库 | MySQL Community Server 8.4.13 |
 | 部署实例 | `127.0.0.1:3306`，目标库 `user` |
 | 存储引擎 | InnoDB |
@@ -30,10 +30,15 @@
 | 序号 | 字段名 | 中文名 | 数据类型 | 允许 NULL | 默认值 | 键 / 索引 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `user_id` | 用户 ID | `BIGINT UNSIGNED` | 否 | `AUTO_INCREMENT` | **PK** | 主键，自增，无业务含义；最大约 1844 京，永不溢出 |
-| 2 | `user_name` | 姓名 | `VARCHAR(50)` | 否 | 无 | **IDX** | 姓名，最长 50 字符（约占 200 字节）；普通索引支持按姓名检索与排序 |
+| 2 | `user_name` | 账号/姓名 | `VARCHAR(50)` | 否 | 无 | **UNIQUE** | 兼作登录账号，全库唯一（`uk_user_name`）；最长 50 字符 |
 | 3 | `user_age` | 年龄 | `TINYINT UNSIGNED` | 是 | `NULL` | — | 取值 0–255，业务上限制 0–150（CHECK 约束）；1 字节，比 INT 省 3 字节 |
 | 4 | `user_img` | 图片 | `LONGBLOB` | 是 | `NULL` | — | **存图片原始字节**；上限 4 GB。<br>⚠️ 原方案用 `TEXT` 有数据损坏风险，详见 5.1 |
 | 5 | `user_note` | 备注 | `LONGTEXT` | 是 | `NULL` | — | 大文本，上限 4 GB；按 `utf8mb4` 存储，支持 Emoji 与生僻字 |
+| 6 | `user_password` | 登录密码 | `VARCHAR(100)` | 否 | `''` | — | **只存 BCrypt 哈希（60 字符）**，任何接口不回传 |
+| 7 | `created_at` | 注册时间 | `DATETIME(3)` | 否 | `CURRENT_TIMESTAMP(3)` | **IDX** | 毫秒精度，报表按此统计 |
+| 8 | `updated_at` | 更新时间 | `DATETIME(3)` | 否 | `CURRENT_TIMESTAMP(3)` 自动更新 | — | — |
+| 9 | `is_deleted` | 逻辑删除 | `TINYINT(1)` | 否 | `0` | — | 0 正常 / 1 已删；报表口径过滤 `= 0` |
+| 10 | `status` | 账号状态 | `TINYINT` | 否 | `1` | — | 1 启用 / 0 禁用；禁用账号不能登录（错误码 40302） |
 
 ### 字段类型选型依据
 
@@ -49,9 +54,8 @@
 | 索引名 | 类型 | 字段 | 说明 |
 | --- | --- | --- | --- |
 | `PRIMARY` | 聚簇索引 | `user_id` | InnoDB 主键即数据组织方式，自增可避免页分裂 |
-| `idx_user_name` | 普通 B+Tree | `user_name` | 支持 `WHERE user_name = ?`、`LIKE '张%'`、`ORDER BY user_name` |
-
-> **注意**：`user_name` 未设为唯一索引——姓名天然会重复，加 UNIQUE 会导致重名用户插不进去。如果这个字段实际含义是**登录账号**（要求唯一），应改为 `UNIQUE KEY uk_user_name (user_name)`，并把长度调到 `VARCHAR(64)`。
+| `uk_user_name` | 唯一 B+Tree | `user_name` | `user_name` 兼作登录账号，全库唯一；注册查重由应用层 + 唯一索引双兜底 |
+| `idx_created_at` | 普通 B+Tree | `created_at` | 报表按注册时间过滤/统计 |
 
 ---
 
@@ -59,13 +63,19 @@
 
 ```sql
 CREATE TABLE `user_db` (
-  `user_id`   BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT  COMMENT '用户ID，主键自增',
-  `user_name` VARCHAR(50)      NOT NULL                 COMMENT '姓名',
-  `user_age`  TINYINT UNSIGNED          DEFAULT NULL    COMMENT '年龄，业务范围 0-150',
-  `user_img`  LONGBLOB                  DEFAULT NULL    COMMENT '图片，存图片原始字节码',
-  `user_note` LONGTEXT                  DEFAULT NULL    COMMENT '备注，大字符',
+  `user_id`       BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT  COMMENT '用户ID，主键自增',
+  `user_name`     VARCHAR(50)      NOT NULL                 COMMENT '账号/姓名，全库唯一',
+  `user_age`      TINYINT UNSIGNED          DEFAULT NULL    COMMENT '年龄，业务范围 0-150',
+  `user_img`      LONGBLOB                  DEFAULT NULL    COMMENT '图片，存图片原始字节码',
+  `user_note`     LONGTEXT                  DEFAULT NULL    COMMENT '备注，大字符',
+  `user_password` VARCHAR(100)     NOT NULL DEFAULT ''      COMMENT '登录密码，存 BCrypt 哈希，禁止明文',
+  `created_at`    DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '注册时间',
+  `updated_at`    DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  `is_deleted`    TINYINT(1)       NOT NULL DEFAULT 0       COMMENT '逻辑删除：0正常 1已删',
+  `status`        TINYINT          NOT NULL DEFAULT 1       COMMENT '账号状态：1启用 0禁用',
   PRIMARY KEY (`user_id`),
-  KEY `idx_user_name` (`user_name`),
+  UNIQUE KEY `uk_user_name` (`user_name`),
+  KEY `idx_created_at` (`created_at`),
   CONSTRAINT `chk_user_age` CHECK (`user_age` IS NULL OR (`user_age` >= 0 AND `user_age` <= 150))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -178,3 +188,4 @@ ALTER TABLE `user_db`
 | 版本 | 日期 | 变更内容 | 变更人 |
 | --- | --- | --- | --- |
 | v1.0 | 2026-11-09 | 初版：定义 5 个字段、2 个索引，`user_img` 由 `TEXT` 修正为 `LONGBLOB` | — |
+| v1.1 | 2026-11-10 | 注册/登录落地（对应 docs/backend/04-业务逻辑文档.md §0）：新增 `user_password / created_at / updated_at / is_deleted / status` 5 列；`idx_user_name` 升级为唯一索引 `uk_user_name`；新增 `idx_created_at` | — |
