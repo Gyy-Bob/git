@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gyy-gateway
+  cloud:
+    gateway:
+      routes:
+        # dev 阶段静态路由（未接注册中心）；接入 Nacos 后改为 lb://gyy-user-service
+        - id: user-service
+          uri: http://127.0.0.1:8101
+          predicates:
+            - Path=/api/v1/users/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 10s
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

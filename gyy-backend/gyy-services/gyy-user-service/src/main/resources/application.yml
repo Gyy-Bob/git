@@ -1,0 +1,37 @@
+server:
+  port: 8101
+
+spring:
+  application:
+    name: gyy-user-service
+  profiles:
+    active: local        # 本机凭据在 application-local.yml（gitignore，勿提交）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 8.4 必须带 allowPublicKeyRetrieval=true；参数含义见 docs/backend/03-MySQL连接配置.md §3.1
+    url: jdbc:mysql://127.0.0.1:3306/user?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&connectTimeout=3000&socketTimeout=60000
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 5000
+      max-lifetime: 1800000
+      idle-timeout: 600000
+      pool-name: user-service-pool
+  servlet:
+    multipart:
+      max-file-size: 16MB
+      max-request-size: 20MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+springdoc:
+  api-docs:
+    enabled: true        # /v3/api-docs 供 Apifox 导入；prod 环境应关闭
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    com.gyy: DEBUG
